@@ -63,12 +63,20 @@ var (
 		"no DAOS IO Servers specified in configuration",
 		"specify at least one IO Server configuration ('servers' list parameter) and restart the control server",
 	)
-	FaultServerIommuDisabled = serverFault(
+	FaultIommuDisabled = serverFault(
 		code.ServerIommuDisabled,
 		"no IOMMU detected while running as non-root user with NVMe devices",
 		"enable IOMMU per the DAOS Admin Guide or run daos_server as root",
 	)
 )
+
+func FaultInsufficientFreeHugePages(free, requested int) *fault.Fault {
+	return serverFault(
+		code.ServerInsufficientFreeHugePages,
+		fmt.Sprintf("requested %d hugepages; got %d", requested, free),
+		"reboot the system or manually clear /dev/hugepages as appropriate",
+	)
+}
 
 func FaultScmUnmanaged(mntPoint string) *fault.Fault {
 	return serverFault(

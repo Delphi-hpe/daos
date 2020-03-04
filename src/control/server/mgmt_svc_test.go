@@ -149,7 +149,9 @@ func TestListPools_NoMS(t *testing.T) {
 	log, buf := logging.NewTestLogger(t.Name())
 	defer common.ShowBufferOnFailure(t, buf)
 
-	svc := newMgmtSvc(NewIOServerHarness(log), nil)
+	h := NewIOServerHarness(log)
+	h.setStarted()
+	svc := newMgmtSvc(h, nil)
 
 	resp, err := svc.ListPools(context.TODO(), newTestListPoolsReq())
 
@@ -240,7 +242,7 @@ func TestListCont_NoMS(t *testing.T) {
 		t.Errorf("Expected no response, got: %+v", resp)
 	}
 
-	common.CmpErr(t, errors.New("no managed instances"), err)
+	common.CmpErr(t, FaultHarnessNotStarted, err)
 }
 
 func TestListCont_DrpcFailed(t *testing.T) {
@@ -346,7 +348,7 @@ func TestPoolGetACL_NoMS(t *testing.T) {
 		t.Errorf("Expected no response, got: %+v", resp)
 	}
 
-	common.CmpErr(t, errors.New("no managed instances"), err)
+	common.CmpErr(t, FaultHarnessNotStarted, err)
 }
 
 func TestPoolGetACL_DrpcFailed(t *testing.T) {
@@ -430,7 +432,7 @@ func TestPoolOverwriteACL_NoMS(t *testing.T) {
 		t.Errorf("Expected no response, got: %+v", resp)
 	}
 
-	common.CmpErr(t, errors.New("no managed instances"), err)
+	common.CmpErr(t, FaultHarnessNotStarted, err)
 }
 
 func TestPoolOverwriteACL_DrpcFailed(t *testing.T) {
@@ -505,7 +507,7 @@ func TestPoolUpdateACL_NoMS(t *testing.T) {
 		t.Errorf("Expected no response, got: %+v", resp)
 	}
 
-	common.CmpErr(t, errors.New("no managed instances"), err)
+	common.CmpErr(t, FaultHarnessNotStarted, err)
 }
 
 func TestPoolUpdateACL_DrpcFailed(t *testing.T) {
@@ -587,7 +589,7 @@ func TestPoolDeleteACL_NoMS(t *testing.T) {
 		t.Errorf("Expected no response, got: %+v", resp)
 	}
 
-	common.CmpErr(t, errors.New("no managed instances"), err)
+	common.CmpErr(t, FaultHarnessNotStarted, err)
 }
 
 func TestPoolDeleteACL_DrpcFailed(t *testing.T) {

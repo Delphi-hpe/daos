@@ -63,6 +63,11 @@ var (
 		"no DAOS IO Servers specified in configuration",
 		"specify at least one IO Server configuration ('servers' list parameter) and restart the control server",
 	)
+	FaultHarnessNotStarted = serverFault(
+		code.ServerHarnessNotStarted,
+		fmt.Sprintf("%s harness not started", DataPlaneName),
+		"retry the operation or check server logs for more details",
+	)
 )
 
 func FaultScmUnmanaged(mntPoint string) *fault.Fault {

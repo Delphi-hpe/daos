@@ -210,7 +210,13 @@ func Start(log *logging.LeveledLogger, cfg *Configuration) error {
 	}
 
 	// Create new grpc server, register services and start serving.
-	var opts []grpc.ServerOption
+	unaryInterceptors := []grpc.UnaryServerInterceptor{
+		unaryErrorInterceptor,
+	}
+	streamInterceptors := []grpc.StreamServerInterceptor{
+		streamErrorInterceptor,
+	}
+	opts := []grpc.ServerOption{}
 	tcOpt, err := security.ServerOptionForTransportConfig(cfg.TransportConfig)
 	if err != nil {
 		return err
@@ -222,15 +228,24 @@ func Start(log *logging.LeveledLogger, cfg *Configuration) error {
 		return err
 	}
 	if uintOpt != nil {
-		opts = append(opts, uintOpt)
+		unaryInterceptors = append(unaryInterceptors, uintOpt)
 	}
 	sintOpt, err := streamInterceptorForTransportConfig(cfg.TransportConfig)
 	if err != nil {
 		return err
 	}
 	if sintOpt != nil {
-		opts = append(opts, sintOpt)
+		streamInterceptors = append(streamInterceptors, sintOpt)
 	}
+	opts = append(opts, []grpc.ServerOption{
+		// TODO: Use these when gRPC v1.28 is released.
+		//grpc.ChainUnaryInterceptor(unaryInterceptors...),
+		//grpc.ChainStreamInterceptor(streamInterceptors...),
+		// In the meantime, pop the last interceptor (which should be the
+		// error annotator unless security is enabled).
+		grpc.UnaryInterceptor(unaryInterceptors[len(unaryInterceptors)-1]),
+		grpc.StreamInterceptor(streamInterceptors[len(streamInterceptors)-1]),
+	}...)
 
 	grpcServer := grpc.NewServer(opts...)
 	ctlpb.RegisterMgmtCtlServer(grpcServer, controlService)

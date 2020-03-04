@@ -23,11 +23,36 @@
 
 package code
 
+import (
+	"encoding/json"
+	"strconv"
+)
+
 // Code represents a stable fault code.
 //
 // NB: All control plane errors should register their codes in the
 // following block in order to avoid conflicts.
 type Code int
+
+// UnmarshalJSON implements a custom unmarshaler
+// to convert an int or string code to a Code.
+func (c *Code) UnmarshalJSON(data []byte) (err error) {
+	var ic int
+	if err = json.Unmarshal(data, &ic); err == nil {
+		*c = Code(ic)
+		return
+	}
+
+	var sc string
+	if err = json.Unmarshal(data, &sc); err != nil {
+		return
+	}
+
+	if ic, err = strconv.Atoi(sc); err == nil {
+		*c = Code(ic)
+	}
+	return
+}
 
 const (
 	// general fault codes
@@ -86,6 +111,7 @@ const (
 	ServerConfigDuplicateScmMount
 	ServerConfigDuplicateScmDeviceList
 	ServerConfigOverlappingBdevDeviceList
+	ServerHarnessNotStarted
 
 	// spdk library bindings codes
 	SpdkUnknown Code = iota + 700

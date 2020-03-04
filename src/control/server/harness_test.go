@@ -363,7 +363,6 @@ func TestHarnessIOServerStart(t *testing.T) {
 
 func TestHarness_SignalInstances(t *testing.T) {
 	for name, tc := range map[string]struct {
-		trc               *ioserver.TestRunnerConfig
 		ioserverCount     int
 		signal            os.Signal
 		ranks             []uint32
@@ -436,14 +435,11 @@ func TestHarness_SignalInstances(t *testing.T) {
 					srv._superblock = nil
 					continue
 				}
-				if tc.trc == nil {
-					tc.trc = &ioserver.TestRunnerConfig{}
-				}
-				if tc.trc.SignalCb == nil {
-					tc.trc.SignalCb = func(idx uint32, sig os.Signal) { signalsSent.Store(idx, sig) }
-				}
-				tc.trc.SignalErr = tc.signalErr
-				srv.runner = ioserver.NewTestRunner(tc.trc, ioserver.NewConfig())
+
+				trc := &ioserver.TestRunnerConfig{}
+				trc.SignalCb = func(idx uint32, sig os.Signal) { signalsSent.Store(idx, sig) }
+				trc.SignalErr = tc.signalErr
+				srv.runner = ioserver.NewTestRunner(trc, ioserver.NewConfig())
 				srv.SetIndex(uint32(i))
 
 				srv._superblock.Rank = new(ioserver.Rank)

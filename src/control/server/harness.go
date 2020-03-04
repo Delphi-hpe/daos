@@ -244,10 +244,10 @@ func (h *IOServerHarness) SignalInstances(ctx context.Context, log logging.Logge
 	}
 
 	instances := h.Instances()
-	stopErrCh := make(chan error, len(instances))
-	stopping := 0
-	for _, i := range instances {
-		rank, err := validateInstanceRank(log, i, ranks)
+	signalErrCh := make(chan error, len(instances))
+	signalling := 0
+	for _, instance := range instances {
+		rank, err := validateInstanceRank(log, instance, ranks)
 		if err != nil {
 			return err
 		}
@@ -255,34 +255,35 @@ func (h *IOServerHarness) SignalInstances(ctx context.Context, log logging.Logge
 			continue
 		}
 
-		if !i.IsStarted() {
+		if !instance.IsStarted() {
 			continue
 		}
 
-		go func(toStop *IOServerInstance, r uint32, s os.Signal) {
+		go func(i *IOServerInstance, r uint32, s os.Signal) {
+			msg := fmt.Sprintf("%s rank %d", s, r)
 			select {
 			case <-ctx.Done():
-				log.Error(errors.Wrapf(ctx.Err(), "stopping rank %d", r).Error())
-			case stopErrCh <- toStop.Signal(s): // nonblocking
-				log.Debugf("sent signal %s to rank %d", s, r)
+				log.Errorf("%s: %s", msg, ctx.Err())
+			case signalErrCh <- i.Signal(s): // nonblocking
+				log.Debug(msg)
 			}
-		}(i, *rank, signal)
-		stopping++
+		}(instance, *rank, signal)
+		signalling++
 	}
 
-	stopErrors := make([]error, 0, len(instances))
+	signalErrors := make([]error, 0, len(instances))
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case stopErr := <-stopErrCh:
-			if stopErr != nil {
-				stopErrors = append(stopErrors, stopErr)
+		case signalErr := <-signalErrCh:
+			if signalErr != nil {
+				signalErrors = append(signalErrors, signalErr)
 			}
-			stopping--
-			if stopping == 0 {
-				if len(stopErrors) > 0 {
-					return common.ConcatErrors(stopErrors, nil)
+			signalling--
+			if signalling == 0 {
+				if len(signalErrors) > 0 {
+					return common.ConcatErrors(signalErrors, nil)
 				}
 				return nil
 			}

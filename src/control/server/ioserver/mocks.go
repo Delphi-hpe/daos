@@ -24,7 +24,6 @@ package ioserver
 
 import (
 	"context"
-	"fmt"
 	"os"
 )
 
@@ -78,7 +77,6 @@ func (tr *TestRunner) Start(ctx context.Context, errChan chan<- error) error {
 
 func (tr *TestRunner) Signal(sig os.Signal) error {
 	if tr.runnerCfg.SignalCb != nil {
-		fmt.Printf("signal: %s\n", sig)
 		tr.runnerCfg.SignalCb(tr.serverCfg.Index, sig)
 	}
 	return tr.runnerCfg.SignalErr

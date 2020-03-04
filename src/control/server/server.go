@@ -50,10 +50,11 @@ import (
 )
 
 const (
-	ControlPlaneName        = "DAOS Control Server"
-	DataPlaneName           = "DAOS I/O Server"
-	ioserverShutdownTimeout = "10s"
+	ControlPlaneName = "DAOS Control Server"
+	DataPlaneName    = "DAOS I/O Server"
 )
+
+var ioserverShutdownTimeout = 10 * time.Second
 
 func cfgHasBdev(cfg *Configuration) bool {
 	for _, srvCfg := range cfg.Servers {
@@ -251,20 +252,14 @@ func Start(log *logging.LeveledLogger, cfg *Configuration) error {
 		sig := <-sigChan
 		log.Debugf("Caught signal: %s", sig)
 
-		// SIGKILL I/O servers if still running on return.
-		defer shutdown()
+		defer shutdown() // Kill I/O servers if running after graceful shutdown.
 
-		timeout, err := time.ParseDuration(ioserverShutdownTimeout)
-		if err != nil {
-			log.Error(errors.Wrap(err, "parsing shutdown timeout").Error())
-		}
-
-		stopCtx, cancel := context.WithTimeout(ctx, timeout)
+		stopCtx, cancel := context.WithTimeout(ctx, ioserverShutdownTimeout)
 		defer cancel()
 
 		// Attampt graceful shutdown of I/O servers.
 		if err := harness.SignalInstances(stopCtx, log, sig); err != nil {
-			log.Error(errors.Wrap(err, "stopping instances").Error())
+			log.Error(errors.Wrap(err, "graceful shutdown").Error())
 		}
 	}()
 

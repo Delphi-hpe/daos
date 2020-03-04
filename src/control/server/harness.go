@@ -244,12 +244,9 @@ func (h *IOServerHarness) SignalInstances(ctx context.Context, log logging.Logge
 	}
 
 	instances := h.Instances()
-	log.Debugf("stopping %d instances\n", len(instances))
-	log.Debugf("ranks %v\n", ranks)
 	stopErrCh := make(chan error, len(instances))
 	stopping := 0
 	for _, i := range instances {
-		log.Debugf("stopping instance %d\n", i.Index())
 		rank, err := validateInstanceRank(log, i, ranks)
 		if err != nil {
 			return err
@@ -265,10 +262,9 @@ func (h *IOServerHarness) SignalInstances(ctx context.Context, log logging.Logge
 		go func(toStop *IOServerInstance, r uint32, s os.Signal) {
 			select {
 			case <-ctx.Done():
-				log.Errorf("context cancelled while stopping rank %d", r)
-			case stopErrCh <- toStop.Signal(s): // Signal() is nonblocking
-				log.Debugf("sending signal %s\n", s)
-				return
+				log.Error(errors.Wrapf(ctx.Err(), "stopping rank %d", r).Error())
+			case stopErrCh <- toStop.Signal(s): // nonblocking
+				log.Debugf("sent signal %s to rank %d", s, r)
 			}
 		}(i, *rank, signal)
 		stopping++
@@ -278,8 +274,7 @@ func (h *IOServerHarness) SignalInstances(ctx context.Context, log logging.Logge
 	for {
 		select {
 		case <-ctx.Done():
-			log.Error("graceful shutdown did not complete")
-			return nil
+			return ctx.Err()
 		case stopErr := <-stopErrCh:
 			if stopErr != nil {
 				stopErrors = append(stopErrors, stopErr)

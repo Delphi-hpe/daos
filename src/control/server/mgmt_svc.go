@@ -746,7 +746,7 @@ func (svc *mgmtSvc) PrepShutdownRanks(ctx context.Context, req *mgmtpb.RanksReq)
 
 	resp := &mgmtpb.RanksResp{}
 
-	for _, i := range svc.harness.instances {
+	for _, i := range svc.harness.Instances() {
 		rank, err := validateInstanceRank(svc.log, i, req.Ranks)
 		if err != nil {
 			return nil, err
@@ -801,6 +801,14 @@ func (svc *mgmtSvc) StopRanks(parent context.Context, req *mgmtpb.RanksReq) (*mg
 
 	// either all instances stopped or timeout occurred
 	for _, i := range svc.harness.Instances() {
+		rank, err := validateInstanceRank(svc.log, i, req.Ranks)
+		if err != nil {
+			return nil, err
+		}
+		if rank == nil { // filtered out, no result expected
+			continue
+		}
+
 		state := system.MemberStateStarted
 		rrErr := errors.Errorf("want %s, got %s", system.MemberStateStopped, state)
 
@@ -926,7 +934,15 @@ func (svc *mgmtSvc) StartRanks(ctx context.Context, req *mgmtpb.RanksReq) (*mgmt
 	}
 
 	// either all instances started or timeout occurred
-	for _, i := range svc.harness.instances {
+	for _, i := range svc.harness.Instances() {
+		rank, err := validateInstanceRank(svc.log, i, req.Ranks)
+		if err != nil {
+			return nil, err
+		}
+		if rank == nil { // filtered out, no result expected
+			continue
+		}
+
 		state := system.MemberStateStopped
 		rrErr := errors.Errorf("want %s, got %s", system.MemberStateStarted, state)
 

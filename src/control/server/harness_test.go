@@ -31,10 +31,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 
 	"github.com/daos-stack/daos/src/control/common"
@@ -366,6 +368,8 @@ func TestHarness_SignalInstances(t *testing.T) {
 		signal            os.Signal
 		ranks             []uint32
 		harnessNotStarted bool
+		signalErr         error
+		ctxTimeout        time.Duration
 		expErr            error
 		expSignalsSent    map[uint32]os.Signal
 		missingSB         bool
@@ -383,10 +387,20 @@ func TestHarness_SignalInstances(t *testing.T) {
 			signal:            syscall.SIGKILL,
 			expSignalsSent:    map[uint32]os.Signal{},
 		},
-		"ranks not in list": {
+		"rank not in list": {
 			ranks:          []uint32{2, 3},
 			signal:         syscall.SIGKILL,
-			expSignalsSent: map[uint32]os.Signal{},
+			expSignalsSent: map[uint32]os.Signal{1: syscall.SIGKILL}, // instance 1 has rank 2
+		},
+		"signal send error": {
+			signal:    syscall.SIGKILL,
+			signalErr: errors.New("sending signal failed"),
+			expErr:    errors.New("scan error(s):\n  sending signal failed\n  sending signal failed\n"),
+		},
+		"context timeout": {
+			signal:     syscall.SIGKILL,
+			ctxTimeout: 1 * time.Nanosecond,
+			expErr:     errors.New("context deadline exceeded"),
 		},
 		"normal stop single-io": {
 			ioserverCount:  1,
@@ -406,7 +420,7 @@ func TestHarness_SignalInstances(t *testing.T) {
 			log, buf := logging.NewTestLogger(t.Name())
 			defer common.ShowBufferOnFailure(t, buf)
 
-			signalsSent := make(map[uint32]os.Signal)
+			var signalsSent sync.Map
 			if tc.ioserverCount == 0 {
 				tc.ioserverCount = maxIoServers
 			}
@@ -426,8 +440,9 @@ func TestHarness_SignalInstances(t *testing.T) {
 					tc.trc = &ioserver.TestRunnerConfig{}
 				}
 				if tc.trc.SignalCb == nil {
-					tc.trc.SignalCb = func(idx uint32, sig os.Signal) { signalsSent[idx] = sig }
+					tc.trc.SignalCb = func(idx uint32, sig os.Signal) { signalsSent.Store(idx, sig) }
 				}
+				tc.trc.SignalErr = tc.signalErr
 				srv.runner = ioserver.NewTestRunner(tc.trc, ioserver.NewConfig())
 				srv.SetIndex(uint32(i))
 
@@ -435,15 +450,33 @@ func TestHarness_SignalInstances(t *testing.T) {
 				*srv._superblock.Rank = ioserver.Rank(i + 1)
 			}
 
-			ctx, shutdown := context.WithTimeout(context.Background(), 50*time.Millisecond)
+			if tc.ctxTimeout == 0 {
+				tc.ctxTimeout = 5 * time.Millisecond
+			}
+			ctx, shutdown := context.WithTimeout(context.Background(), tc.ctxTimeout)
 			defer shutdown()
 			common.CmpErr(t, tc.expErr, svc.harness.SignalInstances(ctx, log, tc.signal, tc.ranks...))
 
-			if tc.expErr != context.Canceled {
+			if tc.expErr != nil {
 				return
 			}
 
-			common.AssertEqual(t, tc.expSignalsSent, signalsSent, name)
+			var numSignalsSent int
+			signalsSent.Range(func(_, _ interface{}) bool {
+				numSignalsSent++
+				return true
+			})
+			common.AssertEqual(t, len(tc.expSignalsSent), numSignalsSent, "number of signals sent")
+
+			for expKey, expValue := range tc.expSignalsSent {
+				value, found := signalsSent.Load(expKey)
+				if !found {
+					t.Fatalf("rank %d was not sent %s signal", expKey, expValue)
+				}
+				if diff := cmp.Diff(expValue, value); diff != "" {
+					t.Fatalf("unexpected signals sent (-want, +got):\n%s\n", diff)
+				}
+			}
 		})
 	}
 }

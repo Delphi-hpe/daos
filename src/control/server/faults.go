@@ -116,14 +116,6 @@ func FaultConfigOverlappingBdevDeviceList(curIdx, seenIdx int) *fault.Fault {
 	)
 }
 
-func FaultInstanceNoSuperblock(idx uint32) *fault.Fault {
-	return serverFault(
-		code.ServerInstanceNoSuperblock,
-		fmt.Sprintf("instance %d has no superblock", idx),
-		"reformat DAOS storage with 'dmg storage format'",
-	)
-}
-
 func dupeValue(code code.Code, name string, curIdx, seenIdx int) *fault.Fault {
 	return serverFault(code,
 		fmt.Sprintf("the %s value in IO server %d is a duplicate of server %d", name, curIdx, seenIdx),

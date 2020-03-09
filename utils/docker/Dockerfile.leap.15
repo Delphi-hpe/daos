@@ -21,7 +21,7 @@ RUN zypper --non-interactive --no-gpg-checks refresh; \
     zypper --non-interactive update; \
     zypper --non-interactive install                                  \
            boost-devel clang cmake cunit-devel curl doxygen flex      \
-           gcc gcc-c++ git go graphviz gzip                           \:when
+           gcc gcc-c++ git go graphviz gzip                           \
            libaio-devel libcmocka-devel libevent-devel libiscsi-devel \
            libltdl7 libnuma-devel libopenssl-devel libtool            \
            libuuid-devel libyaml-devel                                \
@@ -30,7 +30,7 @@ RUN zypper --non-interactive --no-gpg-checks refresh; \
            python-devel python3-devel valgrind-devel hwloc-devel      \
            openmpi3-devel Modules man
 
-RUN zypper innstall https://build.opensuse.org/package/binary/download/home:mcepl:branches:devel:tools:building/scons/openSUSE_Leap_15.2/x86_64/scons-3.1.2-lp152.87.1.x86_64.rpm
+RUN zypper install https://build.opensuse.org/package/binary/download/home:mcepl:branches:devel:tools:building/scons/openSUSE_Leap_15.2/x86_64/scons-3.1.2-lp152.87.1.x86_64.rpm
            
 RUN curl -fsSL -o /tmp/jhli.key https://download.opensuse.org/repositories/home:/jhli/SLE_15/repodata/repomd.xml.key
 RUN rpm --import /tmp/jhli.key; \

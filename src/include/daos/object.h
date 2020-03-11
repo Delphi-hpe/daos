@@ -360,6 +360,8 @@ dc_obj_anchor2shard(daos_anchor_t *anchor)
 static inline void
 dc_obj_shard2anchor(daos_anchor_t *anchor, uint32_t shard)
 {
+	D_DEBUG(DB_TRACE, "set anchor shard %u => %u\n",
+		anchor->da_shard, shard);
 	anchor->da_shard = shard;
 }
 

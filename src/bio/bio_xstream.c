@@ -47,6 +47,7 @@ void spdk_set_thread(struct spdk_thread *thread);
 /* SPDK blob parameters */
 #define DAOS_BS_CLUSTER_SZ	(1ULL << 30)	/* 1GB */
 #define DAOS_BS_MD_PAGES	(1024 * 20)	/* 20k blobs per device */
+#define DAOS_BS_MAX_CHANNEL_OPS	(4096)		/* Max inflight blob IOs */
 /* DMA buffer parameters */
 #define DAOS_DMA_CHUNK_MB	32		/* 32MB DMA chunks */
 #define DAOS_DMA_CHUNK_CNT_INIT	2		/* Per-xstream init chunks */
@@ -280,6 +281,7 @@ bio_nvme_init(const char *storage_path, const char *nvme_conf, int shm_id,
 	spdk_bs_opts_init(&nvme_glb.bd_bs_opts);
 	nvme_glb.bd_bs_opts.cluster_sz = DAOS_BS_CLUSTER_SZ;
 	nvme_glb.bd_bs_opts.num_md_pages = DAOS_BS_MD_PAGES;
+	nvme_glb.bd_bs_opts.max_channel_ops = DAOS_BS_MAX_CHANNEL_OPS;
 
 	bio_chk_cnt_init = DAOS_DMA_CHUNK_CNT_INIT;
 	bio_chk_cnt_max = DAOS_DMA_CHUNK_CNT_MAX;

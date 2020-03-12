@@ -139,6 +139,7 @@ struct agg_merge_window {
 	struct agg_lgc_ent		*mw_lgc_ents;
 	unsigned int			 mw_lgc_max;
 	unsigned int			 mw_lgc_cnt;
+	unsigned int			 mw_lgc_nvme_cnt;
 	/* I/O context for transfering data on flush */
 	struct agg_io_context		 mw_io_ctxt;
 	bool				 mw_csum_support;
@@ -1146,6 +1147,7 @@ insert_segments(daos_handle_t ih, struct agg_merge_window *mw,
 		phy_ent->pe_trunc_head = true;
 	}
 	mw->mw_lgc_cnt = 0;
+	mw->mw_lgc_nvme_cnt = 0;
 
 	/* Adjust payload address of truncated physical entries */
 	for (i = 0; i < io->ic_seg_cnt; i++) {
@@ -1282,6 +1284,7 @@ clear_merge_window(struct agg_merge_window *mw)
 
 	mw->mw_ext.ex_lo = mw->mw_ext.ex_hi = 0;
 	mw->mw_lgc_cnt = 0;
+	mw->mw_lgc_nvme_cnt = 0;
 	d_list_for_each_entry_safe(phy_ent, tmp, &mw->mw_phy_ents,
 				   pe_link) {
 		d_list_del(&phy_ent->pe_link);
@@ -1373,6 +1376,8 @@ out:
 	return rc;
 }
 
+#define MW_MAX_BLOB_OPS		2048
+
 static bool
 trigger_flush(struct agg_merge_window *mw, struct evt_extent *lgc_ext)
 {
@@ -1394,6 +1399,14 @@ trigger_flush(struct agg_merge_window *mw, struct evt_extent *lgc_ext)
 
 	/* Window is large enough */
 	if (merge_window_size(mw) >= mw->mw_flush_thresh)
+		return true;
+
+	/*
+	 * Restrict the number of logical NVMe extents, otherwise, the
+	 * number of SPDK blob read on window flush could exceed the max
+	 * blob ops per io channel (set as 4k in BIO).
+	 */
+	if (mw->mw_lgc_nvme_cnt >= MW_MAX_BLOB_OPS)
 		return true;
 
 	/* Trigger flush when entry is disjoint with window */
@@ -1478,11 +1491,14 @@ enqueue_lgc_ent(struct agg_merge_window *mw, struct evt_extent *lgc_ext,
 	}
 
 	D_ASSERT(mw->mw_lgc_max > mw->mw_lgc_cnt);
+	D_ASSERT(mw->mw_lgc_nvme_cnt <= mw->mw_lgc_cnt);
 	lgc_ent = &mw->mw_lgc_ents[cnt];
 	lgc_ent->le_ext = *lgc_ext;
 	phy_ent->pe_ref++;
 	lgc_ent->le_phy_ent = phy_ent;
 	mw->mw_lgc_cnt++;
+	if (phy_ent->pe_addr.ba_type == DAOS_MEDIA_NVME)
+		mw->mw_lgc_nvme_cnt++;
 
 	/*
 	 * Extend window size. If the visible entry is a punched record, the
